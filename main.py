@@ -2,7 +2,7 @@ import os
 import asyncio
 import logging
 import random
-from aiogram import Bot, Dispatcher, types
+from aiogram import Bot, Dispatcher, types, F
 from aiogram.enums import ParseMode
 from aiogram.client.default import DefaultBotProperties
 from aiogram.types import Message
@@ -10,15 +10,15 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 # Чтение переменных окружения
 BOT_TOKEN = os.getenv("BOT_TOKEN")
-MIN_RATE = float(os.getenv("MIN_RATE"))
-MAX_RATE = float(os.getenv("MAX_RATE"))
-UPDATE_INTERVAL_MIN = int(os.getenv("UPDATE_INTERVAL_MIN"))
-ADMIN_PASS = os.getenv("ADMIN_PASS")
+MIN_RATE = float(os.getenv("MIN_RATE", "65.0"))
+MAX_RATE = float(os.getenv("MAX_RATE", "70.0"))
+UPDATE_INTERVAL_MIN = int(os.getenv("UPDATE_INTERVAL_MIN", "5"))
+ADMIN_PASS = os.getenv("ADMIN_PASS", "adminpass")
 
 # Настройка логгирования
 logging.basicConfig(level=logging.INFO)
 
-# Инициализация бота
+# Инициализация бота (новый синтаксис для aiogram 3.7.0+)
 bot = Bot(
     token=BOT_TOKEN,
     default=DefaultBotProperties(parse_mode=ParseMode.HTML)
@@ -28,27 +28,27 @@ dp = Dispatcher()
 # Глобальное состояние
 current_rate = round(random.uniform(MIN_RATE, MAX_RATE), 2)
 
-# Функция обновления курса
+# Фоновая задача обновления курса
 async def update_rate():
     global current_rate
     while True:
         current_rate = round(random.uniform(MIN_RATE, MAX_RATE), 2)
         await asyncio.sleep(UPDATE_INTERVAL_MIN * 60)
 
-# Команда /start
-@dp.message(commands=["start"])
+# /start
+@dp.message(F.text.startswith("/start"))
 async def start(message: Message):
     kb = InlineKeyboardBuilder()
     kb.button(text="📈 Узнать курс", callback_data="get_rate")
     await message.answer("Добро пожаловать в K‑VALVI.\nВыберите действие:", reply_markup=kb.as_markup())
 
-# Обработка кнопки
-@dp.callback_query(lambda c: c.data == "get_rate")
+# Обработка кнопки "Узнать курс"
+@dp.callback_query(F.data == "get_rate")
 async def get_rate_callback(callback: types.CallbackQuery):
     await callback.message.edit_text(f"<b>Текущий курс:</b> {current_rate} K‑VALVI")
 
-# Команда /set_range
-@dp.message(commands=["set_range"])
+# /set_range
+@dp.message(F.text.startswith("/set_range"))
 async def set_range(message: Message):
     parts = message.text.split()
     if len(parts) != 4:
@@ -66,13 +66,13 @@ async def set_range(message: Message):
     except ValueError:
         await message.answer("Ошибка: значения должны быть числами.")
 
-# Команда /get_range
-@dp.message(commands=["get_range"])
+# /get_range
+@dp.message(F.text.startswith("/get_range"))
 async def get_range(message: Message):
     await message.answer(f"Текущий диапазон: {MIN_RATE}–{MAX_RATE}")
 
-# Команда /about
-@dp.message(commands=["about"])
+# /about
+@dp.message(F.text.startswith("/about"))
 async def about(message: Message):
     await message.answer(
         "<b>K‑VALVI</b> — официальная система единого валютного курса.\n"
